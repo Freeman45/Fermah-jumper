@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adventure Runner - Floaty Jump!</title>
+    <style>
+        /* General Reset and Setup */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --color-primary: #4ECDC4;
+            --color-secondary: #E74C3C;
+            --color-ground-start: #27ae60;
+            --color-ground-end: #2ecc71;
+            --color-bg-deep: #1a2a3a;
+            --color-bg-light: #0d1520;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, var(--color-bg-deep), var(--color-bg-light));
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            overflow: hidden;
+            font-size: 16px;
+        }
+        
+        .game-container {
+            text-align: center;
+            max-width: 800px;
+            width: 95%;
+            padding: 15px;
+        }
+        
+        .game-header {
+            margin-bottom: 15px;
+        }
+        
+        h1 {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            color: var(--color-primary);
+            text-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+            margin-bottom: 8px;
+        }
+        
+        /* Scoreboard Styling */
+        .score-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .score-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            border: 2px solid var(--color-primary);
+            min-width: 90px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        
+        .score-label {
+            font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+            color: var(--color-primary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        
+        .score-value {
+            font-size: clamp(1.5rem, 3vw, 2rem);
+            font-weight: bold;
+            color: white;
+        }
+
+        .multiplier-box {
+            border-color: #F39C12;
+        }
+        .multiplier-box.active {
+            animation: pulse 0.5s infinite alternate;
+            background: rgba(243, 156, 18, 0.2);
+            box-shadow: 0 0 15px #F39C12;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 1; }
+            to { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        /* Game Area */
+        .game-area {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            background: #2c3e50;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid var(--color-primary);
+            box-shadow: 0 0 20px rgba(78, 205, 196, 0.3);
+            margin-bottom: 15px;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        /* Background layers */
+        .parallax-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background-repeat: repeat-x;
+            opacity: 0.5;
+        }
+
+        .layer-1 {
+            height: 70%;
+            bottom: 40px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="0" y="0" width="100" height="100" fill="%2334495E"/><path d="M0 60 L20 40 L40 55 L60 30 L80 45 L100 35 V100 H0 Z" fill="%232C3E50"/></svg>');
+            background-size: 200px 100%;
+            animation: moveParallax 40s linear infinite;
+        }
+
+        .layer-2 {
+            height: 40%;
+            bottom: 40px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="0" y="0" width="100" height="100" fill="none"/><path d="M0 80 L10 60 L25 80 L35 50 L50 80 L60 40 L75 80 L85 65 L100 80 V100 H0 Z" fill="%232D5F3D"/></svg>');
+            background-size: 100px 100%;
+            opacity: 0.8;
+            animation: moveParallax 25s linear infinite;
+        }
+
+        @keyframes moveParallax {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+        
+        .ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 30px;
+            background: linear-gradient(to right, var(--color-ground-start), var(--color-ground-end));
+            z-index: 10;
+        }
+        
+        /* Runner Character */
+        .runner {
+            position: absolute;
+            bottom: 30px;
+            left: 60px;
+            width: 60px;
+            height: 60px;
+            z-index: 10;
+            transform: scaleX(-1);
+            transform-origin: center center;
+        }
+        
+        .runner-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.5));
+        }
+
+        /* Running Animation */
+        .running .runner {
+            animation: runTilt 0.8s infinite alternate ease-in-out;
+        }
+
+        @keyframes runTilt {
+            0% { transform: scaleX(-1) translateY(0px); }
+            100% { transform: scaleX(-1) translateY(-4px); }
+        }
+
+        /* FLOATY JUMP ANIMATION - More time in air */
+        @keyframes jumpAnimation {
+            0% { 
+                bottom: 30px;
+                transform: scaleX(-1) scale(1, 1);
+            }
+            20% { 
+                bottom: 100px;
+                transform: scaleX(-1) scale(1.03, 0.97);
+            }
+            35% { 
+                bottom: 150px;
+                transform: scaleX(-1) scale(1, 1.05);
+            }
+            50% { 
+                bottom: 170px; /* Peak height */
+                transform: scaleX(-1) scale(0.97, 1.08);
+            }
+            65% { 
+                bottom: 170px; /* HANG TIME - stays at peak */
+                transform: scaleX(-1) scale(0.97, 1.08);
+            }
+            75% { 
+                bottom: 150px;
+                transform: scaleX(-1) scale(1, 1.05);
+            }
+            85% { 
+                bottom: 100px;
+                transform: scaleX(-1) scale(1.03, 0.97);
+            }
+            100% { 
+                bottom: 30px;
+                transform: scaleX(-1) scale(1, 1);
+            }
+        }
+        
+        .jumping {
+            animation: jumpAnimation 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+            animation-fill-mode: forwards;
+        }
+
+        /* SMALLER Obstacle */
+        .obstacle {
+            position: absolute;
+            bottom: 30px;
+            right: -100px;
+            width: 35px; /* SMALLER */
+            height: 35px; /* SMALLER */
+            z-index: 5;
+            transform-origin: bottom center;
+        }
+        
+        .obstacle-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 3px 10px rgba(255, 0, 0, 0.5));
+        }
+
+        /* Power Up */
+        .power-up {
+            position: absolute;
+            bottom: 100px;
+            right: -100px;
+            width: 25px; /* Smaller */
+            height: 25px; /* Smaller */
+            background: radial-gradient(#F39C12, #D35400);
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1rem; /* Smaller */
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 5px black;
+            cursor: pointer;
+            z-index: 6;
+            box-shadow: 0 0 15px #F39C12;
+            animation: rotateGlow 3s linear infinite;
+        }
+        
+        @keyframes rotateGlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .power-up-label {
+            font-size: 0.4rem;
+            position: absolute;
+            top: 100%;
+            color: white;
+            text-shadow: 0 0 5px black;
+        }
+        
+        /* Visual Feedback */
+        .points-popup {
+            position: absolute;
+            color: #2ECC71;
+            font-size: clamp(0.9rem, 2vw, 1.5rem);
+            font-weight: bold;
+            z-index: 20;
+            animation: floatUp 1s forwards;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+        
+        @keyframes floatUp {
+            0% { 
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% { 
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+        }
+        
+        /* Collision Impact Visual - smaller */
+        .impact-effect {
+            position: absolute;
+            width: 60px; /* Smaller */
+            height: 60px; /* Smaller */
+            background-color: var(--color-secondary);
+            border-radius: 50%;
+            opacity: 0;
+            animation: impactFade 0.3s forwards;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        @keyframes impactFade {
+            0% { transform: scale(0.1); opacity: 0.8; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+        
+        /* Controls */
+        .controls {
+            margin-top: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .instructions {
+            margin-bottom: 12px;
+            color: #BDC3C7;
+            font-size: clamp(0.75rem, 1.8vw, 0.9rem);
+        }
+        
+        button {
+            background: linear-gradient(45deg, var(--color-primary), #44A08D);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 4px 8px;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(78, 205, 196, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        /* Sound Controls */
+        .sound-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .sound-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .sound-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        
+        .sound-btn.active {
+            background: var(--color-primary);
+            color: black;
+        }
+        
+        /* Game Over */
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+            border: 3px solid var(--color-secondary);
+            min-width: 280px;
+            box-shadow: 0 0 30px var(--color-secondary);
+        }
+        
+        .game-over h2 {
+            color: var(--color-secondary);
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            margin-bottom: 15px;
+        }
+        
+        .game-over p {
+            font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+            margin-bottom: 8px;
+        }
+        
+        .stats {
+            font-size: 1rem;
+            color: #BDC3C7;
+            margin-bottom: 20px;
+        }
+        
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            .game-area { height: 220px; }
+            .runner { 
+                left: 40px;
+                width: 50px;
+                height: 50px;
+            }
+            .obstacle {
+                width: 28px; /* Smaller on mobile */
+                height: 28px; /* Smaller on mobile */
+            }
+            .ground { height: 25px; }
+            .runner { bottom: 25px; }
+            .obstacle { bottom: 25px; }
+            
+            /* Adjust jump for mobile */
+            @keyframes jumpAnimation {
+                0% { 
+                    bottom: 25px;
+                    transform: scaleX(-1) scale(1, 1);
+                }
+                20% { 
+                    bottom: 80px;
+                    transform: scaleX(-1) scale(1.03, 0.97);
+                }
+                35% { 
+                    bottom: 120px;
+                    transform: scaleX(-1) scale(1, 1.05);
+                }
+                50% { 
+                    bottom: 140px;
+                    transform: scaleX(-1) scale(0.97, 1.08);
+                }
+                65% { 
+                    bottom: 140px; /* HANG TIME */
+                    transform: scaleX(-1) scale(0.97, 1.08);
+                }
+                75% { 
+                    bottom: 120px;
+                    transform: scaleX(-1) scale(1, 1.05);
+                }
+                85% { 
+                    bottom: 80px;
+                    transform: scaleX(-1) scale(1.03, 0.97);
+                }
+                100% { 
+                    bottom: 25px;
+                    transform: scaleX(-1) scale(1, 1);
+                }
+            }
+        }
+    </style>
+</head>
+<body class="running">
+    <div class="game-container">
+        <div class="game-header">
+            <h1>ADVENTURE RUNNER</h1>
+            <div class="score-container">
+                <div class="score-box">
+                    <div class="score-label">SCORE</div>
+                    <div class="score-value" id="score">0</div>
+                </div>
+                <div class="score-box multiplier-box" id="multiplierBox">
+                    <div class="score-label">MULTIPLIER</div>
+                    <div class="score-value" id="multiplier">x1</div>
+                </div>
+                <div class="score-box">
+                    <div class="score-label">HIGH SCORE</div>
+                    <div class="score-value" id="highScore">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-area" id="gameArea" tabindex="0">
+            <!-- Background layers -->
+            <div class="parallax-layer layer-1"></div>
+            <div class="parallax-layer layer-2"></div>
+
+            <div class="ground"></div>
+            
+            <!-- Runner Character -->
+            <div class="runner" id="runner">
+                <img src="https://i.ibb.co/Y41mdQby/20251217-131803.png" 
+                     onerror="this.src='https://placehold.co/60x60/4ECDC4/ffffff?text=Runner'"
+                     alt="Runner Character" 
+                     class="runner-image">
+            </div>
+            
+            <!-- Obstacles and Power Ups will be generated here -->
+        </div>
+        
+        <div class="controls">
+            <div class="instructions">
+                Press SPACE or CLICK to jump • Each obstacle = 5 points
+            </div>
+            <button onclick="startGame()" id="startBtn">Start Game</button>
+            <button onclick="jump()" id="jumpBtn">Jump Now!</button>
+            
+            <!-- Sound Controls -->
+            <div class="sound-controls">
+                <button class="sound-btn active" id="musicBtn" onclick="toggleMusic()">
+                    <span id="musicIcon">🔊</span> Music
+                </button>
+                <button class="sound-btn active" id="soundBtn" onclick="toggleSound()">
+                    <span id="soundIcon">🔊</span> Sound FX
+                </button>
+                <button class="sound-btn" id="muteAllBtn" onclick="toggleMuteAll()">
+                    <span id="muteIcon">🔇</span> Mute All
+                </button>
+            </div>
+        </div>
+        
+        <div class="game-over" id="gameOver">
+            <h2>GAME OVER!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <div class="stats">
+                <p>Obstacles Passed: <span id="obstaclesPassed">0</span></p>
+                <p>Max Multiplier: <span id="maxMultiplier">x1</span></p>
+            </div>
+            <button onclick="startGame()">Play Again</button>
+        </div>
+    </div>
+
+    <!-- Audio Elements - Files in same directory as HTML -->
+    <audio id="backgroundMusic" loop preload="auto">
+        <source src="background.mp3" type="audio/mpeg">
+        <source src="background.aac" type="audio/aac">
+        Your browser does not support the audio element.
+    </audio>
+    
+    <audio id="bumpSound" preload="auto">
+        <source src="bump.mp3" type="audio/mpeg">
+        <source src="bump.aac" type="audio/aac">
+        Your browser does not support the audio element.
+    </audio>
+
+    <script>
+        // --- GAME CONSTANTS AND ELEMENTS ---
+        const GAME_AREA = document.getElementById('gameArea');
+        const RUNNER = document.getElementById('runner');
+        const SCORE_ELEM = document.getElementById('score');
+        const HIGH_SCORE_ELEM = document.getElementById('highScore');
+        const MULTIPLIER_ELEM = document.getElementById('multiplier');
+        const MULTIPLIER_BOX = document.getElementById('multiplierBox');
+        const GAME_OVER_SCREEN = document.getElementById('gameOver');
+        const START_BTN = document.getElementById('startBtn');
+        const OBSTACLE_IMAGE = "https://i.ibb.co/vCc5tNw2/Screenshot-20251217-134912-Chrome.png";
+        
+        // --- AUDIO ELEMENTS ---
+        const BACKGROUND_MUSIC = document.getElementById('backgroundMusic');
+        const BUMP_SOUND = document.getElementById('bumpSound');
+        
+        // Set initial volume levels
+        BACKGROUND_MUSIC.volume = 0.4; // Background music at 40% volume
+        BUMP_SOUND.volume = 0.6; // Bump sound at 60% volume
+        
+        // --- SOUND SETTINGS ---
+        let soundSettings = {
+            musicEnabled: true,
+            soundEffectsEnabled: true,
+            muteAll: false
+        };
+
+        // --- SOUND CONTROL FUNCTIONS ---
+        function toggleMusic() {
+            soundSettings.musicEnabled = !soundSettings.musicEnabled;
+            const musicBtn = document.getElementById('musicBtn');
+            const musicIcon = document.getElementById('musicIcon');
+            
+            if (soundSettings.musicEnabled) {
+                musicBtn.classList.add('active');
+                musicIcon.textContent = '🔊';
+                if (state.gameRunning && !soundSettings.muteAll) {
+                    BACKGROUND_MUSIC.play().catch(e => console.log("Audio play failed:", e));
+                }
+            } else {
+                musicBtn.classList.remove('active');
+                musicIcon.textContent = '🔇';
+                BACKGROUND_MUSIC.pause();
+            }
+            
+            updateMuteAllButton();
+        }
+
+        function toggleSound() {
+            soundSettings.soundEffectsEnabled = !soundSettings.soundEffectsEnabled;
+            const soundBtn = document.getElementById('soundBtn');
+            const soundIcon = document.getElementById('soundIcon');
+            
+            if (soundSettings.soundEffectsEnabled) {
+                soundBtn.classList.add('active');
+                soundIcon.textContent = '🔊';
+            } else {
+                soundBtn.classList.remove('active');
+                soundIcon.textContent = '🔇';
+            }
+            
+            updateMuteAllButton();
+        }
+
+        function toggleMuteAll() {
+            soundSettings.muteAll = !soundSettings.muteAll;
+            const muteAllBtn = document.getElementById('muteAllBtn');
+            const muteIcon = document.getElementById('muteIcon');
+            
+            if (soundSettings.muteAll) {
+                // Mute everything
+                muteAllBtn.classList.add('active');
+                muteIcon.textContent = '🔈';
+                BACKGROUND_MUSIC.pause();
+                soundSettings.musicEnabled = false;
+                soundSettings.soundEffectsEnabled = false;
+                
+                // Update individual buttons
+                document.getElementById('musicBtn').classList.remove('active');
+                document.getElementById('soundBtn').classList.remove('active');
+                document.getElementById('musicIcon').textContent = '🔇';
+                document.getElementById('soundIcon').textContent = '🔇';
+            } else {
+                // Unmute everything (restore previous settings)
+                muteAllBtn.classList.remove('active');
+                muteIcon.textContent = '🔇';
+                soundSettings.musicEnabled = true;
+                soundSettings.soundEffectsEnabled = true;
+                
+                // Update individual buttons
+                document.getElementById('musicBtn').classList.add('active');
+                document.getElementById('soundBtn').classList.add('active');
+                document.getElementById('musicIcon').textContent = '🔊';
+                document.getElementById('soundIcon').textContent = '🔊';
+                
+                if (state.gameRunning) {
+                    BACKGROUND_MUSIC.play().catch(e => console.log("Audio play failed:", e));
+                }
+            }
+        }
+
+        function updateMuteAllButton() {
+            const muteAllBtn = document.getElementById('muteAllBtn');
+            if (!soundSettings.musicEnabled && !soundSettings.soundEffectsEnabled) {
+                muteAllBtn.classList.add('active');
+                soundSettings.muteAll = true;
+            } else {
+                muteAllBtn.classList.remove('active');
+                soundSettings.muteAll = false;
+            }
+        }
+
+        // --- PLAY SOUND FUNCTIONS ---
+        function playBackgroundMusic() {
+            if (soundSettings.musicEnabled && !soundSettings.muteAll) {
+                BACKGROUND_MUSIC.currentTime = 0;
+                BACKGROUND_MUSIC.play().catch(e => {
+                    console.log("Background music play failed:", e);
+                    // Some browsers require user interaction before playing audio
+                    // We'll try again when user interacts with the game
+                });
+            }
+        }
+
+        function playBumpSound() {
+            if (soundSettings.soundEffectsEnabled && !soundSettings.muteAll) {
+                BUMP_SOUND.currentTime = 0;
+                BUMP_SOUND.play().catch(e => console.log("Bump sound play failed:", e));
+            }
+        }
+
+        // --- GAME STATE VARIABLES ---
+        let state = {
+            score: 0,
+            highScore: localStorage.getItem('adventureRunnerHighScore') || 0,
+            gameSpeed: 2.5,
+            baseSpeed: 2.5,
+            gameRunning: false,
+            isJumping: false,
+            isBoosted: false,
+            currentStreak: 0,
+            scoreMultiplier: 1,
+            maxMultiplier: 1,
+            lastTime: 0,
+            runnerX: 0,
+            runnerLeft: 60,
+            obstacleSpawnTimer: 0,
+            powerUpSpawnTimer: 0,
+            minSpawnDelay: 1.5,  // Increased minimum delay
+            maxSpawnDelay: 3.0,  // Increased maximum delay
+        };
+
+        // --- INITIALIZATION ---
+        HIGH_SCORE_ELEM.textContent = state.highScore;
+
+        function initializeGame() {
+            const runnerRect = RUNNER.getBoundingClientRect();
+            const gameAreaRect = GAME_AREA.getBoundingClientRect();
+            state.runnerX = runnerRect.left - gameAreaRect.left;
+            state.runnerLeft = 60;
+            
+            // Set initial position
+            RUNNER.style.left = `${state.runnerLeft}px`;
+            RUNNER.style.bottom = '30px';
+        }
+
+        // --- GAME FLOW FUNCTIONS ---
+
+        function startGame() {
+            if (state.gameRunning) {
+                document.querySelectorAll('.entity').forEach(el => el.remove());
+            }
+
+            // Reset state
+            state.score = 0;
+            state.gameSpeed = 2.5;
+            state.baseSpeed = 2.5;
+            state.gameRunning = true;
+            state.isJumping = false;
+            state.isBoosted = false;
+            state.currentStreak = 0;
+            state.scoreMultiplier = 1;
+            state.maxMultiplier = 1;
+            state.obstacleSpawnTimer = 0;
+            state.powerUpSpawnTimer = 0;
+            state.runnerLeft = 60;
+            
+            // Reset spawn delays
+            state.minSpawnDelay = 1.5;
+            state.maxSpawnDelay = 3.0;
+            
+            // UI updates
+            SCORE_ELEM.textContent = '0';
+            MULTIPLIER_ELEM.textContent = 'x1';
+            MULTIPLIER_BOX.classList.remove('active');
+            GAME_OVER_SCREEN.style.display = 'none';
+            START_BTN.textContent = 'Restart Game';
+            document.body.classList.add('running');
+            
+            // Reset runner position and animation
+            RUNNER.classList.remove('jumping');
+            RUNNER.style.bottom = '30px';
+            RUNNER.style.left = `${state.runnerLeft}px`;
+            RUNNER.style.animation = '';
+            RUNNER.style.transform = 'scaleX(-1) scale(1, 1)';
+            
+            // Play background music
+            playBackgroundMusic();
+            
+            // Start the main game loop
+            state.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+            
+            // Focus game area
+            GAME_AREA.focus();
+        }
+
+        function gameOver() {
+            state.gameRunning = false;
+            document.body.classList.remove('running');
+            
+            // Stop background music
+            BACKGROUND_MUSIC.pause();
+            BACKGROUND_MUSIC.currentTime = 0;
+            
+            // UI updates
+            document.getElementById('finalScore').textContent = state.score;
+            document.getElementById('obstaclesPassed').textContent = state.currentStreak > 0 ? state.currentStreak : 0;
+            document.getElementById('maxMultiplier').textContent = `x${state.maxMultiplier}`;
+            GAME_OVER_SCREEN.style.display = 'block';
+            START_BTN.textContent = 'Start Game';
+            
+            // Clear all entities
+            document.querySelectorAll('.entity').forEach(el => el.remove());
+        }
+
+        // --- ENTITY CREATION ---
+
+        function createObstacle() {
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle entity';
+            obstacle.dataset.type = 'obstacle';
+            obstacle.dataset.scored = 'false';
+            
+            // SMALLER obstacle size (30-40px)
+            const size = Math.floor(Math.random() * 10) + 30;
+            obstacle.style.width = `${size}px`;
+            obstacle.style.height = `${size}px`;
+            
+            obstacle.innerHTML = `
+                <img src="${OBSTACLE_IMAGE}" 
+                     onerror="this.src='https://placehold.co/${size}x${size}/E74C3C/ffffff?text=X'"
+                     alt="Obstacle" 
+                     class="obstacle-image" 
+                     style="height: ${size}px;">
+            `;
+            
+            GAME_AREA.appendChild(obstacle);
+        }
+
+        function createPowerUp() {
+            const powerUp = document.createElement('div');
+            powerUp.className = 'power-up entity';
+            powerUp.dataset.type = 'powerup';
+            powerUp.dataset.collected = 'false';
+            
+            powerUp.innerHTML = `
+                ⚡
+                <div class="power-up-label">BOOST</div>
+            `;
+            
+            GAME_AREA.appendChild(powerUp);
+        }
+
+        // --- FLOATY JUMP FUNCTION - More time in air ---
+        function jump() {
+            if (!state.gameRunning || state.isJumping) return;
+            
+            state.isJumping = true;
+            
+            // Remove any existing animation
+            RUNNER.classList.remove('jumping');
+            RUNNER.style.animation = '';
+            
+            // Force reflow to restart animation
+            void RUNNER.offsetWidth;
+            
+            // Add jump animation
+            RUNNER.classList.add('jumping');
+            
+            // Reset jumping state after animation completes (0.9s)
+            setTimeout(() => {
+                RUNNER.classList.remove('jumping');
+                RUNNER.style.animation = '';
+                RUNNER.style.transform = 'scaleX(-1) scale(1, 1)';
+                state.isJumping = false;
+            }, 900); // Match the 0.9s CSS animation duration
+        }
+
+        function addScore(basePoints, multiplier) {
+            const points = basePoints * multiplier;
+            state.score += points;
+            SCORE_ELEM.textContent = state.score;
+            
+            // Update high score
+            if (state.score > state.highScore) {
+                state.highScore = state.score;
+                HIGH_SCORE_ELEM.textContent = state.highScore;
+                localStorage.setItem('adventureRunnerHighScore', state.highScore);
+            }
+
+            // Floating point feedback
+            const popup = document.createElement('div');
+            popup.className = 'points-popup';
+            popup.textContent = `+${points}${multiplier > 1 ? ` (x${multiplier})` : ''}`;
+            
+            // Position near the runner
+            popup.style.left = `${state.runnerLeft + 30}px`; 
+            popup.style.top = `${GAME_AREA.offsetHeight - RUNNER.offsetHeight - 50}px`;
+            GAME_AREA.appendChild(popup);
+            
+            setTimeout(() => popup.remove(), 1000);
+        }
+
+        function updateMultiplier(passed) {
+            if (passed) {
+                state.currentStreak++;
+                state.scoreMultiplier = Math.floor(state.currentStreak / 5) + 1;
+            } else {
+                state.currentStreak = 0;
+                state.scoreMultiplier = 1;
+            }
+
+            state.maxMultiplier = Math.max(state.maxMultiplier, state.scoreMultiplier);
+            MULTIPLIER_ELEM.textContent = `x${state.scoreMultiplier}`;
+            
+            if (state.scoreMultiplier > 1) {
+                MULTIPLIER_BOX.classList.add('active');
+            } else {
+                MULTIPLIER_BOX.classList.remove('active');
+            }
+        }
+
+        function activateBoost() {
+            if (state.isBoosted) return;
+            
+            state.isBoosted = true;
+            state.gameSpeed *= 1.5;
+            GAME_AREA.style.border = '3px solid #F39C12';
+            addScore(50, state.scoreMultiplier);
+
+            setTimeout(() => {
+                deactivateBoost();
+            }, 5000);
+        }
+
+        function deactivateBoost() {
+            state.isBoosted = false;
+            state.gameSpeed = state.baseSpeed;
+            GAME_AREA.style.border = `3px solid var(--color-primary)`;
+        }
+
+        // --- MAIN GAME LOOP WITH SPREAD OUT OBSTACLES ---
+        function gameLoop(currentTime) {
+            if (!state.gameRunning) return;
+
+            const deltaTime = (currentTime - state.lastTime) / 1000;
+            state.lastTime = currentTime;
+            
+            // Update Game Speed
+            state.baseSpeed = Math.min(5, state.baseSpeed + deltaTime * 0.015); // Slower speed increase
+            if (!state.isBoosted) {
+                state.gameSpeed = state.baseSpeed;
+            }
+
+            // Spawn Entities
+            const entitySpeed = state.gameSpeed * 70; // Slower entity speed
+
+            // OBSTACLE SPAWNING - More spread out
+            state.obstacleSpawnTimer += deltaTime;
+            
+            // Increased base delay for more spacing
+            const baseDelay = 2.2 / (state.gameSpeed / 2.5);
+            
+            // Random variation with more weight toward spread out
+            const randomFactor = Math.random();
+            let spawnDelay;
+            
+            if (randomFactor < 0.15) {
+                // Occasionally close (15% chance)
+                spawnDelay = baseDelay * 0.7;
+            } else if (randomFactor < 0.3) {
+                // Sometimes medium (15% chance)
+                spawnDelay = baseDelay * 1.0;
+            } else {
+                // Usually spread out (70% chance)
+                spawnDelay = baseDelay * 1.5;
+            }
+            
+            // Ensure minimum delay is longer
+            spawnDelay = Math.max(spawnDelay, 1.2);
+            
+            if (state.obstacleSpawnTimer > spawnDelay) {
+                createObstacle();
+                state.obstacleSpawnTimer = 0;
+            }
+            
+            // Power-up spawning (less frequent)
+            state.powerUpSpawnTimer += deltaTime;
+            if (state.powerUpSpawnTimer > 12 && Math.random() < 0.12) {
+                createPowerUp();
+                state.powerUpSpawnTimer = 0;
+            }
+
+            // Move Entities & Check Collisions
+            const gameAreaRect = GAME_AREA.getBoundingClientRect();
+            const runnerRect = RUNNER.getBoundingClientRect();
+            
+            document.querySelectorAll('.entity').forEach(entity => {
+                const style = entity.style;
+                let currentRight = parseFloat(style.right) || -100;
+                
+                // Move entity at slower speed
+                currentRight += entitySpeed * deltaTime;
+                style.right = `${currentRight}px`;
+                
+                // Remove if off screen
+                if (currentRight > gameAreaRect.width + 100) {
+                    entity.remove();
+                    return;
+                }
+
+                // Check collisions/scoring
+                if (currentRight > state.runnerLeft - 100 && currentRight < gameAreaRect.width) {
+                    const entityRect = entity.getBoundingClientRect();
+
+                    // Check for obstacle interaction
+                    if (entity.dataset.type === 'obstacle') {
+                        // Scoring logic
+                        if (entity.dataset.scored === 'false' && entityRect.right < runnerRect.left) {
+                            entity.dataset.scored = 'true';
+                            addScore(5, state.scoreMultiplier);
+                            updateMultiplier(true);
+                        }
+
+                        // Collision detection (tighter for smaller obstacles)
+                        if (entity.dataset.scored === 'false') {
+                            const isCollidingX = runnerRect.left < entityRect.right - 5 && 
+                                                runnerRect.right > entityRect.left + 5;
+                            const isCollidingY = runnerRect.bottom > entityRect.top + 3 && 
+                                                runnerRect.top < entityRect.bottom - 3;
+
+                            if (isCollidingX && isCollidingY) {
+                                // Play bump sound on collision
+                                playBumpSound();
+                                
+                                // Visual impact effect
+                                const impact = document.createElement('div');
+                                impact.className = 'impact-effect';
+                                impact.style.left = `${runnerRect.left - gameAreaRect.left + runnerRect.width / 2}px`;
+                                impact.style.top = `${runnerRect.top - gameAreaRect.top + runnerRect.height / 2}px`;
+                                GAME_AREA.appendChild(impact);
+                                setTimeout(() => impact.remove(), 300);
+
+                                updateMultiplier(false);
+                                gameOver();
+                                entity.remove();
+                            }
+                        }
+                    }
+
+                    // Check for power-up interaction
+                    if (entity.dataset.type === 'powerup' && entity.dataset.collected === 'false') {
+                        const isCollidingX = runnerRect.left < entityRect.right && runnerRect.right > entityRect.left;
+                        const isCollidingY = runnerRect.bottom > entityRect.top && runnerRect.top < entityRect.bottom;
+
+                        if (isCollidingX && isCollidingY) {
+                            entity.dataset.collected = 'true';
+                            activateBoost();
+                            entity.remove();
+                        }
+                    }
+                }
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- EVENT LISTENERS ---
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!state.gameRunning) {
+                    startGame();
+                } else {
+                    jump();
+                }
+            }
+        });
+
+        // Multiple jump triggers
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+            }
+        });
+
+        // Click/tap controls for game area
+        GAME_AREA.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (state.gameRunning) {
+                jump();
+            } else {
+                startGame();
+            }
+        });
+
+        GAME_AREA.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (state.gameRunning) {
+                jump();
+            } else {
+                startGame();
+            }
+        }, { passive: false });
+
+        // Jump button control
+        document.getElementById('jumpBtn').addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            jump();
+        });
+
+        document.getElementById('jumpBtn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        }, { passive: false });
+
+        // Initialize on load
+        window.addEventListener('load', initializeGame);
+        
+        console.log("Floaty jump game with sound effects loaded!");
+        console.log("All files in same directory:");
+        console.log("- index.html");
+        console.log("- background.mp3");
+        console.log("- bump.mp3");
+        console.log("Obstacles: Smaller (35px), more spread out");
+        console.log("Jump: 0.9s duration with hang time at peak");
+    </script>
+</body>
+</html>
